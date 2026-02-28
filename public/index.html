@@ -572,13 +572,17 @@
     }
 
     // ── View 1: Projects ──────────────────────────────────
+    let projectsData = [];
+
     async function loadProjects() {
       try {
         const res = await fetch("/api/projects/overview");
         const projects = await res.json();
+        projectsData = projects;
         renderProjects(projects);
       } catch (err) {
         console.error(err);
+        document.getElementById("projects-grid").innerHTML = '<div class="placeholder">Failed to load projects.</div>';
       }
     }
 
@@ -606,7 +610,7 @@
           ? `<div class="project-last-run">Last run &nbsp;<strong>${esc(p.latest_event_name)}</strong> &middot; ${timeAgo(p.latest_event_at)}</div>`
           : "";
 
-        return `<div class="project-card" onclick="openProject(${p.id}, ${JSON.stringify(esc(p.name))})">
+        return `<div class="project-card" onclick="openProject(${p.id})">
           <div class="project-card-header">
             <div>
               <div class="project-name">${esc(p.name)}</div>
@@ -621,10 +625,11 @@
       }).join("");
     }
 
-    function openProject(id, name) {
+    function openProject(id) {
+      const p = projectsData.find(p => p.id === id);
       currentProjectId = id;
-      currentProjectName = name;
-      document.getElementById("events-project-name").textContent = name;
+      currentProjectName = p ? p.name : "";
+      document.getElementById("events-project-name").textContent = currentProjectName;
       showView("view-events");
       loadEvents();
     }
