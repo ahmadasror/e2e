@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>E2E Test Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f172a'/%3E%3Crect x='5' y='5' width='22' height='22' rx='3' fill='%231e293b' stroke='%23334155' stroke-width='1'/%3E%3Ccircle cx='11' cy='12' r='2' fill='%234ade80'/%3E%3Ccircle cx='11' cy='20' r='2' fill='%23f87171'/%3E%3Crect x='16' y='10.5' width='9' height='3' rx='1.5' fill='%2360a5fa'/%3E%3Crect x='16' y='18.5' width='6' height='3' rx='1.5' fill='%2360a5fa'/%3E%3C/svg%3E">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 2rem;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .back-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      border-radius: 6px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .back-btn:hover { border-color: #60a5fa; color: #e2e8f0; }
+
+    h1 {
+      font-size: 1.4rem;
+      color: #f8fafc;
+    }
+
+    .breadcrumb {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-top: 0.2rem;
+    }
+
+    .api-docs-link {
+      color: #60a5fa;
+      font-size: 0.85rem;
+      text-decoration: none;
+      border: 1px solid #334155;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      background: #1e293b;
+      transition: border-color 0.15s;
+      white-space: nowrap;
+    }
+    .api-docs-link:hover { border-color: #60a5fa; }
+
+    /* Views */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ─── View 1: Projects Grid ─── */
+    .projects-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .project-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 1.25rem;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    }
+    .project-card:hover {
+      border-color: #475569;
+      background: #253349;
+      transform: translateY(-1px);
+    }
+
+    .project-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+
+    .project-name {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      word-break: break-word;
+    }
+
+    .project-desc {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-top: 0.25rem;
+    }
+
+    .project-card-footer {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #334155;
+    }
+
+    .project-last-run {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-bottom: 0.5rem;
+    }
+
+    .project-stats {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .stat-item {
+      font-size: 0.8rem;
+    }
+
+    .no-runs-label {
+      font-size: 0.8rem;
+      color: #475569;
+      font-style: italic;
+    }
+
+    /* ─── View 2: Event History ─── */
+    .events-list-view {}
+
+    .events-table-wrap {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .event-row {
+      display: flex;
+      align-items: center;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid #334155;
+      cursor: pointer;
+      transition: background 0.15s;
+      gap: 1rem;
+    }
+    .event-row:last-child { border-bottom: none; }
+    .event-row:hover { background: #253349; }
+
+    .event-row-left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .event-name {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #e2e8f0;
+      margin-bottom: 0.2rem;
+    }
+
+    .event-meta {
+      font-size: 0.75rem;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .event-row-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-shrink: 0;
+    }
+
+    .event-stats {
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+    }
+
+    .event-chevron {
+      color: #475569;
+      font-size: 0.8rem;
+    }
+
+    /* ─── View 3: Event Detail ─── */
+    .summary-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 1.25rem;
+      border: 1px solid #334155;
+    }
+
+    .card .label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      margin-bottom: 0.5rem;
+    }
+
+    .card .value {
+      font-size: 2rem;
+      font-weight: 700;
+    }
+
+    .card .sub {
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-top: 0.25rem;
+    }
+
+    /* Filter toolbar */
+    .filter-bar {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+
+    .filter-btn {
+      background: #1e293b;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 0.4rem 0.75rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .filter-btn:hover { border-color: #475569; }
+    .filter-btn.active { background: #334155; border-color: #60a5fa; }
+
+    /* Suites table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #1e293b;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+    }
+
+    th {
+      background: #334155;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+    }
+
+    tr:not(:last-child) td { border-bottom: 1px solid #334155; }
+
+    .suite-row {
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .suite-row:hover { background: #253349; }
+
+    .cases-row td {
+      padding: 0;
+      background: #0f172a;
+    }
+
+    .cases-container {
+      padding: 0.5rem 1rem 1rem 2rem;
+    }
+
+    .cases-container table {
+      border: 1px solid #1e293b;
+      font-size: 0.82rem;
+    }
+
+    .cases-container th {
+      background: #1e293b;
+      font-size: 0.68rem;
+    }
+
+    .cases-container td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .badge-pass { background: #166534; color: #4ade80; }
+    .badge-fail { background: #7f1d1d; color: #f87171; }
+
+    .badge-case-pass { background: #166534; color: #4ade80; font-size: 0.68rem; padding: 0.1rem 0.4rem; border-radius: 4px; display: inline-block; }
+    .badge-case-fail { background: #7f1d1d; color: #f87171; font-size: 0.68rem; padding: 0.1rem 0.4rem; border-radius: 4px; display: inline-block; }
+    .badge-case-skip { background: #44403c; color: #fbbf24; font-size: 0.68rem; padding: 0.1rem 0.4rem; border-radius: 4px; display: inline-block; }
+
+    .trigger-badge {
+      display: inline-block;
+      padding: 0.1rem 0.35rem;
+      border-radius: 3px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      background: #0f172a;
+      color: #94a3b8;
+      text-transform: uppercase;
+      border: 1px solid #334155;
+    }
+
+    .badge-module {
+      display: inline-block;
+      padding: 0.1rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .error-msg {
+      color: #f87171;
+      font-size: 0.75rem;
+      font-style: italic;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .expand-icon {
+      display: inline-block;
+      width: 1rem;
+      text-align: center;
+      margin-right: 0.25rem;
+      transition: transform 0.15s;
+      color: #64748b;
+    }
+    .expand-icon.open { transform: rotate(90deg); }
+
+    /* Shared */
+    .green { color: #4ade80; }
+    .red { color: #f87171; }
+    .blue { color: #60a5fa; }
+    .yellow { color: #fbbf24; }
+
+    .placeholder {
+      text-align: center;
+      color: #475569;
+      padding: 2rem;
+    }
+
+    .refresh-note {
+      text-align: center;
+      color: #475569;
+      font-size: 0.72rem;
+      margin-top: 1rem;
+    }
+
+    .section-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── View 1: Projects ── -->
+  <div id="view-projects" class="view active">
+    <div class="header">
+      <div class="header-left">
+        <h1>E2E Test Dashboard</h1>
+      </div>
+      <a href="/api-docs" class="api-docs-link">API Docs</a>
+    </div>
+    <div class="section-title">Projects</div>
+    <div class="projects-grid" id="projects-grid">
+      <div class="placeholder">Loading...</div>
+    </div>
+    <div class="refresh-note">Auto-refreshes every 10 seconds</div>
+  </div>
+
+  <!-- ── View 2: Event History ── -->
+  <div id="view-events" class="view">
+    <div class="header">
+      <div class="header-left">
+        <button class="back-btn" onclick="goToProjects()">&#8592; Projects</button>
+        <div>
+          <h1 id="events-project-name">Project</h1>
+          <div class="breadcrumb">Test Run History</div>
+        </div>
+      </div>
+      <a href="/api-docs" class="api-docs-link">API Docs</a>
+    </div>
+    <div id="events-list-container">
+      <div class="placeholder">Loading...</div>
+    </div>
+    <div class="refresh-note">Auto-refreshes every 10 seconds</div>
+  </div>
+
+  <!-- ── View 3: Event Detail ── -->
+  <div id="view-detail" class="view">
+    <div class="header">
+      <div class="header-left">
+        <button class="back-btn" onclick="goToEvents()">&#8592; <span id="detail-back-label">Project</span></button>
+        <div>
+          <h1 id="detail-event-name">Test Run</h1>
+          <div class="breadcrumb" id="detail-breadcrumb"></div>
+        </div>
+      </div>
+      <a href="/api-docs" class="api-docs-link">API Docs</a>
+    </div>
+
+    <div class="summary-cards">
+      <div class="card">
+        <div class="label">Suites</div>
+        <div class="value blue" id="d-suites">-</div>
+      </div>
+      <div class="card">
+        <div class="label">Total Tests</div>
+        <div class="value" id="d-total">-</div>
+      </div>
+      <div class="card">
+        <div class="label">Passed</div>
+        <div class="value green" id="d-passed">-</div>
+        <div class="sub" id="d-pass-pct"></div>
+      </div>
+      <div class="card">
+        <div class="label">Failed</div>
+        <div class="value red" id="d-failed">-</div>
+        <div class="sub" id="d-fail-pct"></div>
+      </div>
+      <div class="card">
+        <div class="label">Skipped</div>
+        <div class="value yellow" id="d-skipped">-</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <span style="font-size:0.8rem;color:#64748b;margin-right:0.25rem">Filter:</span>
+      <button class="filter-btn active" onclick="setFilter('')">All</button>
+      <button class="filter-btn" onclick="setFilter('pass')">Pass</button>
+      <button class="filter-btn" onclick="setFilter('fail')">Fail</button>
+      <button class="filter-btn" onclick="setFilter('skip')">Skip</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Suite</th>
+          <th>Total</th>
+          <th>Passed</th>
+          <th>Failed</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="suites-body">
+        <tr><td colspan="6" class="placeholder">Loading...</td></tr>
+      </tbody>
+    </table>
+    <div class="refresh-note">Click a suite row to expand test cases</div>
+  </div>
+
+  <script>
+    // ── Utilities ──────────────────────────────────────────
+    const MODULE_COLORS = [
+      "#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981",
+      "#06b6d4","#f43f5e","#84cc16","#14b8a6","#a855f7",
+    ];
+    const moduleColorMap = {};
+    let colorIdx = 0;
+
+    function getModuleColor(mod) {
+      if (!mod) return "#64748b";
+      if (!moduleColorMap[mod]) {
+        moduleColorMap[mod] = MODULE_COLORS[colorIdx % MODULE_COLORS.length];
+        colorIdx++;
+      }
+      return moduleColorMap[mod];
+    }
+
+    function timeAgo(dateStr) {
+      if (!dateStr) return "never";
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return "just now";
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      return `${days}d ago`;
+    }
+
+    function esc(str) {
+      if (str == null) return "";
+      const d = document.createElement("div");
+      d.textContent = String(str);
+      return d.innerHTML;
+    }
+
+    function passBadge(failed) {
+      return failed === 0
+        ? '<span class="badge badge-pass">PASS</span>'
+        : '<span class="badge badge-fail">FAIL</span>';
+    }
+
+    // ── State ──────────────────────────────────────────────
+    let currentProjectId = null;
+    let currentProjectName = "";
+    let currentEventId = null;
+    let expandedSuites = new Set();
+    let casesCache = {};
+    let statusFilter = "";
+    let currentEventData = null;
+
+    // ── View switching ─────────────────────────────────────
+    function showView(id) {
+      document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+    }
+
+    function goToProjects() {
+      currentProjectId = null;
+      currentProjectName = "";
+      currentEventId = null;
+      expandedSuites.clear();
+      casesCache = {};
+      showView("view-projects");
+    }
+
+    function goToEvents() {
+      currentEventId = null;
+      expandedSuites.clear();
+      casesCache = {};
+      showView("view-events");
+      loadEvents();
+    }
+
+    // ── View 1: Projects ──────────────────────────────────
+    async function loadProjects() {
+      try {
+        const res = await fetch("/api/projects/overview");
+        const projects = await res.json();
+        renderProjects(projects);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderProjects(projects) {
+      const grid = document.getElementById("projects-grid");
+      if (projects.length === 0) {
+        grid.innerHTML = '<div class="placeholder">No projects yet. Use the API to register a project.</div>';
+        return;
+      }
+
+      grid.innerHTML = projects.map(p => {
+        const hasRun = p.latest_event_id != null;
+        const badge = hasRun ? passBadge(Number(p.latest_failed)) : "";
+
+        const statsHtml = hasRun ? `
+          <div class="project-stats">
+            <span class="stat-item green">&#10003;&nbsp;${p.latest_passed}</span>
+            <span class="stat-item red">&#10007;&nbsp;${p.latest_failed}</span>
+            <span class="stat-item yellow">&#8960;&nbsp;${p.latest_skipped}</span>
+            <span style="flex:1"></span>
+            ${badge}
+          </div>` : `<div class="no-runs-label">No test runs yet</div>`;
+
+        const lastRunHtml = hasRun
+          ? `<div class="project-last-run">Last run &nbsp;<strong>${esc(p.latest_event_name)}</strong> &middot; ${timeAgo(p.latest_event_at)}</div>`
+          : "";
+
+        return `<div class="project-card" onclick="openProject(${p.id}, ${JSON.stringify(esc(p.name))})">
+          <div class="project-card-header">
+            <div>
+              <div class="project-name">${esc(p.name)}</div>
+              ${p.description ? `<div class="project-desc">${esc(p.description)}</div>` : ""}
+            </div>
+          </div>
+          <div class="project-card-footer">
+            ${lastRunHtml}
+            ${statsHtml}
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    function openProject(id, name) {
+      currentProjectId = id;
+      currentProjectName = name;
+      document.getElementById("events-project-name").textContent = name;
+      showView("view-events");
+      loadEvents();
+    }
+
+    // ── View 2: Event History ─────────────────────────────
+    async function loadEvents() {
+      if (!currentProjectId) return;
+      try {
+        const res = await fetch(`/api/events?project_id=${currentProjectId}`);
+        const events = await res.json();
+        renderEvents(events);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderEvents(events) {
+      const container = document.getElementById("events-list-container");
+      if (events.length === 0) {
+        container.innerHTML = '<div class="placeholder">No test runs recorded for this project yet.</div>';
+        return;
+      }
+
+      const rows = events.map(e => `
+        <div class="event-row" onclick="openEvent(${e.id})">
+          <div class="event-row-left">
+            <div class="event-name">${esc(e.event_name)}</div>
+            <div class="event-meta">
+              <span class="trigger-badge">${esc(e.trigger)}</span>
+              ${timeAgo(e.created_at)}
+              &middot; ${new Date(e.created_at).toLocaleString()}
+            </div>
+          </div>
+          <div class="event-row-right">
+            <div class="event-stats">
+              <span class="green">&#10003;&nbsp;${e.passed}</span>
+              <span class="red">&#10007;&nbsp;${e.failed}</span>
+              <span class="yellow">&#8960;&nbsp;${e.skipped}</span>
+            </div>
+            ${passBadge(Number(e.failed))}
+            <span class="event-chevron">&#9654;</span>
+          </div>
+        </div>`).join("");
+
+      container.innerHTML = `<div class="events-table-wrap">${rows}</div>`;
+    }
+
+    function openEvent(eventId) {
+      currentEventId = eventId;
+      expandedSuites.clear();
+      casesCache = {};
+      statusFilter = "";
+      document.querySelectorAll(".filter-btn").forEach((b, i) => b.classList.toggle("active", i === 0));
+      showView("view-detail");
+      loadEventDetail();
+    }
+
+    // ── View 3: Event Detail ──────────────────────────────
+    async function loadEventDetail() {
+      if (!currentEventId) return;
+      try {
+        const res = await fetch(`/api/events/${currentEventId}`);
+        if (!res.ok) return;
+        const event = await res.json();
+        currentEventData = event;
+
+        // Pre-populate cases cache
+        casesCache = {};
+        for (const c of event.cases || []) {
+          if (!casesCache[c.run_id]) casesCache[c.run_id] = [];
+          casesCache[c.run_id].push(c);
+        }
+
+        // Header
+        document.getElementById("detail-event-name").textContent = event.event_name;
+        document.getElementById("detail-back-label").textContent = currentProjectName;
+        document.getElementById("detail-breadcrumb").textContent =
+          `${currentProjectName} · ${new Date(event.created_at).toLocaleString()}`;
+
+        // Summary cards
+        const total = Number(event.total);
+        const passed = Number(event.passed);
+        const failed = Number(event.failed);
+        document.getElementById("d-suites").textContent = event.runs.length;
+        document.getElementById("d-total").textContent = total;
+        document.getElementById("d-passed").textContent = passed;
+        document.getElementById("d-failed").textContent = failed;
+        document.getElementById("d-skipped").textContent = event.skipped;
+        document.getElementById("d-pass-pct").textContent = total > 0 ? ((passed/total)*100).toFixed(1)+"%" : "";
+        document.getElementById("d-fail-pct").textContent = total > 0 ? ((failed/total)*100).toFixed(1)+"%" : "";
+
+        renderSuites(event.runs);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function setFilter(f) {
+      statusFilter = f;
+      document.querySelectorAll(".filter-btn").forEach(b => {
+        const label = b.textContent.toLowerCase();
+        b.classList.toggle("active",
+          (f === "" && label === "all") ||
+          (f !== "" && label === f)
+        );
+      });
+      renderExpandedCases();
+    }
+
+    function renderSuites(runs) {
+      const tbody = document.getElementById("suites-body");
+      if (!runs || runs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="placeholder">No suites found</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = runs.map(r => {
+        const isExpanded = expandedSuites.has(r.id);
+        const arrow = `<span class="expand-icon ${isExpanded ? "open" : ""}">&#9654;</span>`;
+        let html = `<tr class="suite-row" onclick="toggleSuite(${r.id})">
+          <td>${arrow}</td>
+          <td>${esc(r.suite_name)}</td>
+          <td>${r.total}</td>
+          <td class="green">${r.passed}</td>
+          <td class="${r.failed > 0 ? "red" : ""}">${r.failed}</td>
+          <td>${passBadge(r.failed)}</td>
+        </tr>`;
+
+        if (isExpanded) {
+          html += `<tr class="cases-row" id="cases-${r.id}"><td colspan="6"><div class="cases-container"><div class="placeholder">Loading cases...</div></div></td></tr>`;
+        }
+        return html;
+      }).join("");
+
+      expandedSuites.forEach(id => {
+        const cached = casesCache[id];
+        if (cached) renderCases(id, cached);
+        else fetchCases(id);
+      });
+    }
+
+    async function toggleSuite(runId) {
+      if (expandedSuites.has(runId)) {
+        expandedSuites.delete(runId);
+      } else {
+        expandedSuites.add(runId);
+      }
+      if (currentEventData) renderSuites(currentEventData.runs);
+    }
+
+    async function fetchCases(runId) {
+      try {
+        const res = await fetch(`/api/results/${runId}/cases`);
+        const cases = await res.json();
+        casesCache[runId] = cases;
+        renderCases(runId, cases);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderExpandedCases() {
+      expandedSuites.forEach(id => {
+        if (casesCache[id]) renderCases(id, casesCache[id]);
+      });
+    }
+
+    function renderCases(runId, cases) {
+      const container = document.querySelector(`#cases-${runId} .cases-container`);
+      if (!container) return;
+
+      let filtered = statusFilter ? cases.filter(c => c.status === statusFilter) : cases;
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div class="placeholder" style="padding:0.5rem">No test cases found</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Case ID</th>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Module</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Duration</th>
+              <th>Error</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.map(c => {
+              const statusBadge = c.status === "pass"
+                ? '<span class="badge-case-pass">PASS</span>'
+                : c.status === "skip"
+                  ? '<span class="badge-case-skip">SKIP</span>'
+                  : '<span class="badge-case-fail">FAIL</span>';
+              const moduleBadge = c.module
+                ? `<span class="badge-module" style="background:${getModuleColor(c.module)}">${esc(c.module)}</span>`
+                : "-";
+              return `<tr>
+                <td>${esc(c.case_id || "-")}</td>
+                <td>${esc(c.case_name)}</td>
+                <td>${esc(c.description || "-")}</td>
+                <td>${moduleBadge}</td>
+                <td>${esc(c.type || "-")}</td>
+                <td>${statusBadge}</td>
+                <td>${c.duration_ms != null ? c.duration_ms + "ms" : "-"}</td>
+                <td>${c.error_message ? `<span class="error-msg" title="${esc(c.error_message)}">${esc(c.error_message)}</span>` : "-"}</td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>`;
+    }
+
+    // ── Auto-refresh ──────────────────────────────────────
+    function refresh() {
+      const active = document.querySelector(".view.active");
+      if (!active) return;
+      if (active.id === "view-projects") loadProjects();
+      else if (active.id === "view-events") loadEvents();
+      else if (active.id === "view-detail") loadEventDetail();
+    }
+
+    // ── Init ──────────────────────────────────────────────
+    loadProjects();
+    setInterval(refresh, 10000);
+  </script>
+</body>
+</html>

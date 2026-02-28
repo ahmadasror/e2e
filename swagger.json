@@ -1,0 +1,448 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Test Suite Dashboard API",
+    "description": "API for submitting and querying test suite results with multi-project support, event history, and detailed test cases.",
+    "version": "3.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development"
+    }
+  ],
+  "paths": {
+    "/api/projects": {
+      "post": {
+        "summary": "Register a new project",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "my-api" },
+                  "description": { "type": "string", "example": "My API project" },
+                  "repo_url": { "type": "string", "example": "https://github.com/org/my-api" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Project created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Project" }
+              }
+            }
+          },
+          "400": { "description": "Missing required field" },
+          "409": { "description": "Project already exists" }
+        }
+      },
+      "get": {
+        "summary": "List all projects",
+        "responses": {
+          "200": {
+            "description": "List of projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Project" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/results": {
+      "post": {
+        "summary": "Submit test results as an execution event",
+        "description": "Creates an event record grouping one or more test suite runs. Supports a single-suite format (backward compatible) or a multi-suite 'suites' array. Maximum 5 events per project — the oldest is automatically deleted when a 6th is posted.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  { "$ref": "#/components/schemas/ResultsInputSingleSuite" },
+                  { "$ref": "#/components/schemas/ResultsInputMultiSuite" }
+                ]
+              },
+              "examples": {
+                "single-suite": {
+                  "summary": "Single suite (backward compatible)",
+                  "value": {
+                    "project_name": "my-api",
+                    "event_name": "Sanity Check",
+                    "trigger": "ci",
+                    "suite_name": "auth",
+                    "total": 4,
+                    "passed": 3,
+                    "failed": 1,
+                    "cases": []
+                  }
+                },
+                "multi-suite": {
+                  "summary": "Multiple suites (new format)",
+                  "value": {
+                    "project_name": "my-api",
+                    "event_name": "Full Regression",
+                    "trigger": "scheduled",
+                    "suites": [
+                      { "suite_name": "auth", "total": 4, "passed": 3, "failed": 1, "cases": [] },
+                      { "suite_name": "users", "total": 3, "passed": 3, "failed": 0, "cases": [] }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Event and test run(s) created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer", "description": "First run ID (backward compat)", "example": 1 },
+                    "event_id": { "type": "integer", "example": 1 },
+                    "run_ids": {
+                      "type": "array",
+                      "items": { "type": "integer" },
+                      "example": [1, 2]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Missing required fields" },
+          "500": { "description": "Internal server error" }
+        }
+      },
+      "get": {
+        "summary": "Get recent test runs",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 20, "maximum": 100 }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "description": "Filter by project",
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of test runs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TestRun" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/results/{id}/cases": {
+      "get": {
+        "summary": "Get test cases for a specific run",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of test cases",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TestCase" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events": {
+      "get": {
+        "summary": "List events for a project (newest first, max 5)",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "query",
+            "required": true,
+            "description": "Project ID to list events for",
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Event" }
+                }
+              }
+            }
+          },
+          "400": { "description": "project_id is required" }
+        }
+      }
+    },
+    "/api/events/{id}": {
+      "get": {
+        "summary": "Get event detail with its test runs and cases",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event with runs and cases",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventDetail" }
+              }
+            }
+          },
+          "404": { "description": "Event not found" }
+        }
+      }
+    },
+    "/api/summary": {
+      "get": {
+        "summary": "Get aggregated stats",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "query",
+            "description": "Filter by project",
+            "schema": { "type": "integer" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aggregated statistics",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Summary" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/cases": {
+      "get": {
+        "summary": "Filter test cases globally",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by status",
+            "schema": { "type": "string", "enum": ["pass", "fail", "skip"] }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "description": "Filter by project",
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 50, "maximum": 200 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of test cases",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TestCase" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Project": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "name": { "type": "string", "example": "my-api" },
+          "description": { "type": "string", "example": "My API project" },
+          "repo_url": { "type": "string", "example": "https://github.com/org/my-api" },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "project_id": { "type": "integer", "example": 1 },
+          "project_name": { "type": "string", "example": "my-api" },
+          "event_name": { "type": "string", "example": "Sanity Check" },
+          "trigger": { "type": "string", "example": "ci", "enum": ["manual", "ci", "scheduled"] },
+          "total": { "type": "integer", "example": 7 },
+          "passed": { "type": "integer", "example": 6 },
+          "failed": { "type": "integer", "example": 1 },
+          "skipped": { "type": "integer", "example": 0 },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "EventDetail": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Event" },
+          {
+            "type": "object",
+            "properties": {
+              "runs": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/TestRun" }
+              },
+              "cases": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/TestCase" }
+              }
+            }
+          }
+        ]
+      },
+      "TestRun": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "project_id": { "type": "integer", "example": 1 },
+          "project_name": { "type": "string", "example": "my-api" },
+          "event_id": { "type": "integer", "example": 1 },
+          "suite_name": { "type": "string", "example": "auth" },
+          "total": { "type": "integer", "example": 4 },
+          "passed": { "type": "integer", "example": 3 },
+          "failed": { "type": "integer", "example": 1 },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ResultsInputSingleSuite": {
+        "type": "object",
+        "required": ["suite_name", "total", "passed", "failed"],
+        "properties": {
+          "suite_name": { "type": "string", "example": "auth" },
+          "total": { "type": "integer", "example": 4 },
+          "passed": { "type": "integer", "example": 3 },
+          "failed": { "type": "integer", "example": 1 },
+          "project_id": { "type": "integer", "description": "Existing project ID" },
+          "project_name": { "type": "string", "description": "Project name (auto-creates if not exists)", "example": "my-api" },
+          "event_name": { "type": "string", "example": "Sanity Check", "default": "Test Run" },
+          "trigger": { "type": "string", "example": "ci", "default": "manual" },
+          "cases": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TestCaseInput" }
+          }
+        }
+      },
+      "ResultsInputMultiSuite": {
+        "type": "object",
+        "required": ["suites"],
+        "properties": {
+          "project_id": { "type": "integer" },
+          "project_name": { "type": "string", "example": "my-api" },
+          "event_name": { "type": "string", "example": "Full Regression", "default": "Test Run" },
+          "trigger": { "type": "string", "example": "scheduled", "default": "manual" },
+          "suites": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["suite_name", "total", "passed", "failed"],
+              "properties": {
+                "suite_name": { "type": "string", "example": "auth" },
+                "total": { "type": "integer", "example": 4 },
+                "passed": { "type": "integer", "example": 3 },
+                "failed": { "type": "integer", "example": 1 },
+                "cases": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TestCaseInput" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "TestCaseInput": {
+        "type": "object",
+        "required": ["case_name", "status"],
+        "properties": {
+          "case_id": { "type": "string", "example": "1.5" },
+          "case_name": { "type": "string", "example": "Login with valid credentials" },
+          "description": { "type": "string", "example": "Verifies user can log in" },
+          "module": { "type": "string", "example": "authentication" },
+          "type": { "type": "string", "enum": ["positive", "negative"], "example": "positive" },
+          "status": { "type": "string", "enum": ["pass", "fail", "skip"], "example": "pass" },
+          "error_message": { "type": "string" },
+          "duration_ms": { "type": "integer", "example": 120 }
+        }
+      },
+      "TestCase": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "run_id": { "type": "integer" },
+          "case_id": { "type": "string", "example": "1.5" },
+          "case_name": { "type": "string", "example": "Login with valid credentials" },
+          "description": { "type": "string" },
+          "module": { "type": "string", "example": "authentication" },
+          "type": { "type": "string", "enum": ["positive", "negative"] },
+          "status": { "type": "string", "enum": ["pass", "fail", "skip"] },
+          "error_message": { "type": "string" },
+          "duration_ms": { "type": "integer" },
+          "suite_name": { "type": "string" },
+          "project_id": { "type": "integer" },
+          "project_name": { "type": "string" }
+        }
+      },
+      "Summary": {
+        "type": "object",
+        "properties": {
+          "run_count": { "type": "string", "example": "5" },
+          "total_tests": { "type": "string", "example": "61" },
+          "total_passed": { "type": "string", "example": "56" },
+          "total_failed": { "type": "string", "example": "5" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "test-dashboard",
+  "version": "1.0.0",
+  "description": "Test suite monitoring dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "post-results": "node e2e/post-results.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0",
+    "pg": "^8.13.0",
+    "swagger-ui-express": "^5.0.1"
+  }
+}
