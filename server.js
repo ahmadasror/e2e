@@ -75,8 +75,8 @@ async function pruneEvents(projectId) {
     "SELECT id FROM events WHERE project_id = $1 ORDER BY created_at ASC",
     [projectId]
   );
-  if (result.rows.length > 5) {
-    const idsToDelete = result.rows.slice(0, result.rows.length - 5).map(r => r.id);
+  if (result.rows.length > 15) {
+    const idsToDelete = result.rows.slice(0, result.rows.length - 15).map(r => r.id);
     await pool.query("DELETE FROM events WHERE id = ANY($1::int[])", [idsToDelete]);
   }
 }
@@ -276,7 +276,7 @@ app.get("/api/events", async (req, res) => {
      LEFT JOIN projects p ON p.id = e.project_id
      WHERE e.project_id = $1
      ORDER BY e.created_at DESC
-     LIMIT 5`,
+     LIMIT 15`,
     [projectId]
   );
   res.json(result.rows);
