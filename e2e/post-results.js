@@ -40,6 +40,76 @@ const events = [
     ],
   },
   {
+    project_name: "manajemen-distrik",
+    event_name: "01-login",
+    trigger: "manual",
+    suites: [
+      {
+        suite_name: "01-login",
+        total: 10,
+        passed: 10,
+        failed: 0,
+        cases: [],
+      },
+    ],
+  },
+  {
+    project_name: "manajemen-distrik",
+    event_name: "04-audit-trail",
+    trigger: "manual",
+    suites: [
+      {
+        suite_name: "04-audit-trail",
+        total: 7,
+        passed: 7,
+        failed: 0,
+        cases: [],
+      },
+    ],
+  },
+  {
+    project_name: "manajemen-distrik",
+    event_name: "05-dashboard",
+    trigger: "manual",
+    suites: [
+      {
+        suite_name: "05-dashboard",
+        total: 3,
+        passed: 3,
+        failed: 0,
+        cases: [],
+      },
+    ],
+  },
+  {
+    project_name: "manajemen-distrik",
+    event_name: "06-access-control",
+    trigger: "manual",
+    suites: [
+      {
+        suite_name: "06-access-control",
+        total: 8,
+        passed: 7,
+        failed: 0,
+        cases: [],
+      },
+    ],
+  },
+  {
+    project_name: "manajemen-distrik",
+    event_name: "07-role-matrix",
+    trigger: "manual",
+    suites: [
+      {
+        suite_name: "07-role-matrix",
+        total: 25,
+        passed: 25,
+        failed: 0,
+        cases: [],
+      },
+    ],
+  },
+  {
     project_name: "web-app",
     event_name: "Sanity Check",
     trigger: "ci",
