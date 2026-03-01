@@ -176,6 +176,13 @@
       margin-bottom: 0.2rem;
     }
 
+    .event-description {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-bottom: 0.2rem;
+      font-style: italic;
+    }
+
     .event-meta {
       font-size: 0.75rem;
       color: #64748b;
@@ -657,6 +664,7 @@
         <div class="event-row" onclick="openEvent(${e.id})">
           <div class="event-row-left">
             <div class="event-name">${esc(e.event_name)}</div>
+            ${e.description ? `<div class="event-description">${esc(e.description)}</div>` : ""}
             <div class="event-meta">
               <span class="trigger-badge">${esc(e.trigger)}</span>
               ${timeAgo(e.created_at)}
@@ -706,8 +714,11 @@
         // Header
         document.getElementById("detail-event-name").textContent = event.event_name;
         document.getElementById("detail-back-label").textContent = currentProjectName;
+        const dateStr = new Date(event.created_at).toLocaleString();
         document.getElementById("detail-breadcrumb").textContent =
-          `${currentProjectName} · ${new Date(event.created_at).toLocaleString()}`;
+          event.description
+            ? `${event.description} · ${dateStr}`
+            : `${currentProjectName} · ${dateStr}`;
 
         // Summary cards
         const total = Number(event.total);

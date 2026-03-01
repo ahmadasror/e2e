@@ -68,6 +68,9 @@ async function initDb() {
   await pool.query(`
     ALTER TABLE test_runs ADD COLUMN IF NOT EXISTS event_id INTEGER REFERENCES events(id) ON DELETE CASCADE
   `);
+  await pool.query(`
+    ALTER TABLE events ADD COLUMN IF NOT EXISTS description TEXT
+  `);
 }
 
 async function pruneEvents(projectId) {
@@ -140,7 +143,7 @@ app.get("/api/projects/overview", async (req, res) => {
 //   Single suite (backward compat): { suite_name, total, passed, failed, cases, project_id|project_name, event_name?, trigger? }
 //   Multi-suite (new):              { suites: [{suite_name, total, passed, failed, cases}], project_id|project_name, event_name?, trigger? }
 app.post("/api/results", async (req, res) => {
-  const { suite_name, total, passed, failed, project_id, project_name, cases, event_name, trigger, suites } = req.body;
+  const { suite_name, total, passed, failed, project_id, project_name, cases, event_name, trigger, description, suites } = req.body;
 
   // Determine which format was used
   let suitesArray;
@@ -180,9 +183,9 @@ app.post("/api/results", async (req, res) => {
 
     // Create event record
     const eventResult = await client.query(
-      `INSERT INTO events (project_id, event_name, trigger, total, passed, failed, skipped)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      [resolvedProjectId, event_name || "Test Run", trigger || "manual", eventTotal, eventPassed, eventFailed, eventSkipped]
+      `INSERT INTO events (project_id, event_name, description, trigger, total, passed, failed, skipped)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [resolvedProjectId, event_name || "Test Run", description || null, trigger || "manual", eventTotal, eventPassed, eventFailed, eventSkipped]
     );
     const eventId = eventResult.rows[0].id;
 
