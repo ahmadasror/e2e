@@ -1,9 +1,9 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Test Suite Dashboard API",
-    "description": "API for submitting and querying test suite results with multi-project support, event history, and detailed test cases.",
-    "version": "3.0.0"
+    "title": "E2E Dashboard API",
+    "description": "API for submitting and querying E2E test results with multi-project support, event history, and detailed test cases.",
+    "version": "4.0.0"
   },
   "servers": [
     {
@@ -15,6 +15,7 @@
     "/api/projects": {
       "post": {
         "summary": "Register a new project",
+        "tags": ["Projects"],
         "requestBody": {
           "required": true,
           "content": {
@@ -23,9 +24,9 @@
                 "type": "object",
                 "required": ["name"],
                 "properties": {
-                  "name": { "type": "string", "example": "my-api" },
-                  "description": { "type": "string", "example": "My API project" },
-                  "repo_url": { "type": "string", "example": "https://github.com/org/my-api" }
+                  "name": { "type": "string", "example": "manajemen-distrik" },
+                  "description": { "type": "string", "example": "Sistem manajemen wilayah distrik" },
+                  "repo_url": { "type": "string", "example": "https://github.com/org/manajemen-distrik" }
                 }
               }
             }
@@ -40,12 +41,13 @@
               }
             }
           },
-          "400": { "description": "Missing required field" },
+          "400": { "description": "Missing required field: name" },
           "409": { "description": "Project already exists" }
         }
       },
       "get": {
         "summary": "List all projects",
+        "tags": ["Projects"],
         "responses": {
           "200": {
             "description": "List of projects",
@@ -61,10 +63,31 @@
         }
       }
     },
+    "/api/projects/overview": {
+      "get": {
+        "summary": "List all projects with latest event stats",
+        "tags": ["Projects"],
+        "description": "Returns all projects including aggregated stats from their most recent event (passed, failed, skipped, total, last run time). Used by the dashboard landing page.",
+        "responses": {
+          "200": {
+            "description": "List of projects with latest event stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/ProjectOverview" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/results": {
       "post": {
         "summary": "Submit test results as an execution event",
-        "description": "Creates an event record grouping one or more test suite runs. Supports a single-suite format (backward compatible) or a multi-suite 'suites' array. Maximum 5 events per project — the oldest is automatically deleted when a 6th is posted.",
+        "tags": ["Results"],
+        "description": "Creates an event record grouping one or more test suite runs. Supports a single-suite format (backward compatible) or a multi-suite `suites` array.\n\nOptionally include a `description` to annotate the purpose of the test run (e.g. *\"E2E testing case untuk improvement management wilayah\"*).\n\nMaximum **15 events** per project — the oldest is automatically deleted when a 16th is posted.",
         "requestBody": {
           "required": true,
           "content": {
@@ -79,25 +102,31 @@
                 "single-suite": {
                   "summary": "Single suite (backward compatible)",
                   "value": {
-                    "project_name": "my-api",
+                    "project_name": "manajemen-distrik",
                     "event_name": "Sanity Check",
-                    "trigger": "ci",
-                    "suite_name": "auth",
-                    "total": 4,
-                    "passed": 3,
-                    "failed": 1,
+                    "description": "Quick smoke test after deployment",
+                    "trigger": "manual",
+                    "suite_name": "01-login",
+                    "total": 10,
+                    "passed": 10,
+                    "failed": 0,
                     "cases": []
                   }
                 },
                 "multi-suite": {
-                  "summary": "Multiple suites (new format)",
+                  "summary": "Multiple suites in one event",
                   "value": {
-                    "project_name": "my-api",
-                    "event_name": "Full Regression",
-                    "trigger": "scheduled",
+                    "project_name": "manajemen-distrik",
+                    "event_name": "E2E Run 2026-03-01",
+                    "description": "E2E testing case untuk improvement management wilayah",
+                    "trigger": "ci",
                     "suites": [
-                      { "suite_name": "auth", "total": 4, "passed": 3, "failed": 1, "cases": [] },
-                      { "suite_name": "users", "total": 3, "passed": 3, "failed": 0, "cases": [] }
+                      { "suite_name": "01-login", "total": 10, "passed": 10, "failed": 0, "cases": [] },
+                      { "suite_name": "04-audit-trail", "total": 7, "passed": 7, "failed": 0, "cases": [] },
+                      { "suite_name": "06-access-control", "total": 8, "passed": 7, "failed": 1, "cases": [
+                        { "case_id": "6.1", "case_name": "Admin can view all districts", "module": "access", "type": "positive", "status": "pass", "duration_ms": 120 },
+                        { "case_id": "6.2", "case_name": "Staff cannot delete district", "module": "access", "type": "negative", "status": "fail", "error_message": "Expected 403 but got 200", "duration_ms": 95 }
+                      ]}
                     ]
                   }
                 }
@@ -118,7 +147,7 @@
                     "run_ids": {
                       "type": "array",
                       "items": { "type": "integer" },
-                      "example": [1, 2]
+                      "example": [1, 2, 3]
                     }
                   }
                 }
@@ -131,6 +160,7 @@
       },
       "get": {
         "summary": "Get recent test runs",
+        "tags": ["Results"],
         "parameters": [
           {
             "name": "limit",
@@ -162,6 +192,7 @@
     "/api/results/{id}/cases": {
       "get": {
         "summary": "Get test cases for a specific run",
+        "tags": ["Results"],
         "parameters": [
           {
             "name": "id",
@@ -187,7 +218,8 @@
     },
     "/api/events": {
       "get": {
-        "summary": "List events for a project (newest first, max 5)",
+        "summary": "List events for a project (newest first, max 15)",
+        "tags": ["Events"],
         "parameters": [
           {
             "name": "project_id",
@@ -216,6 +248,7 @@
     "/api/events/{id}": {
       "get": {
         "summary": "Get event detail with its test runs and cases",
+        "tags": ["Events"],
         "parameters": [
           {
             "name": "id",
@@ -240,6 +273,7 @@
     "/api/summary": {
       "get": {
         "summary": "Get aggregated stats",
+        "tags": ["Stats"],
         "parameters": [
           {
             "name": "project_id",
@@ -263,6 +297,7 @@
     "/api/cases": {
       "get": {
         "summary": "Filter test cases globally",
+        "tags": ["Results"],
         "parameters": [
           {
             "name": "status",
@@ -304,22 +339,41 @@
         "type": "object",
         "properties": {
           "id": { "type": "integer", "example": 1 },
-          "name": { "type": "string", "example": "my-api" },
-          "description": { "type": "string", "example": "My API project" },
-          "repo_url": { "type": "string", "example": "https://github.com/org/my-api" },
+          "name": { "type": "string", "example": "manajemen-distrik" },
+          "description": { "type": "string", "example": "Sistem manajemen wilayah distrik" },
+          "repo_url": { "type": "string", "example": "https://github.com/org/manajemen-distrik" },
           "created_at": { "type": "string", "format": "date-time" }
         }
+      },
+      "ProjectOverview": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Project" },
+          {
+            "type": "object",
+            "properties": {
+              "latest_event_id": { "type": "integer", "nullable": true, "example": 50 },
+              "latest_event_name": { "type": "string", "nullable": true, "example": "E2E Run 2026-03-01" },
+              "latest_trigger": { "type": "string", "nullable": true, "example": "manual" },
+              "latest_total": { "type": "integer", "nullable": true, "example": 53 },
+              "latest_passed": { "type": "integer", "nullable": true, "example": 52 },
+              "latest_failed": { "type": "integer", "nullable": true, "example": 1 },
+              "latest_skipped": { "type": "integer", "nullable": true, "example": 0 },
+              "latest_event_at": { "type": "string", "format": "date-time", "nullable": true }
+            }
+          }
+        ]
       },
       "Event": {
         "type": "object",
         "properties": {
-          "id": { "type": "integer", "example": 1 },
-          "project_id": { "type": "integer", "example": 1 },
-          "project_name": { "type": "string", "example": "my-api" },
-          "event_name": { "type": "string", "example": "Sanity Check" },
-          "trigger": { "type": "string", "example": "ci", "enum": ["manual", "ci", "scheduled"] },
-          "total": { "type": "integer", "example": 7 },
-          "passed": { "type": "integer", "example": 6 },
+          "id": { "type": "integer", "example": 50 },
+          "project_id": { "type": "integer", "example": 3 },
+          "project_name": { "type": "string", "example": "manajemen-distrik" },
+          "event_name": { "type": "string", "example": "E2E Run 2026-03-01" },
+          "description": { "type": "string", "nullable": true, "example": "E2E testing case untuk improvement management wilayah" },
+          "trigger": { "type": "string", "example": "manual", "enum": ["manual", "ci", "scheduled"] },
+          "total": { "type": "integer", "example": 53 },
+          "passed": { "type": "integer", "example": 52 },
           "failed": { "type": "integer", "example": 1 },
           "skipped": { "type": "integer", "example": 0 },
           "created_at": { "type": "string", "format": "date-time" }
@@ -346,13 +400,13 @@
       "TestRun": {
         "type": "object",
         "properties": {
-          "id": { "type": "integer", "example": 1 },
-          "project_id": { "type": "integer", "example": 1 },
-          "project_name": { "type": "string", "example": "my-api" },
-          "event_id": { "type": "integer", "example": 1 },
-          "suite_name": { "type": "string", "example": "auth" },
-          "total": { "type": "integer", "example": 4 },
-          "passed": { "type": "integer", "example": 3 },
+          "id": { "type": "integer", "example": 54 },
+          "project_id": { "type": "integer", "example": 3 },
+          "project_name": { "type": "string", "example": "manajemen-distrik" },
+          "event_id": { "type": "integer", "example": 50 },
+          "suite_name": { "type": "string", "example": "06-access-control" },
+          "total": { "type": "integer", "example": 8 },
+          "passed": { "type": "integer", "example": 7 },
           "failed": { "type": "integer", "example": 1 },
           "created_at": { "type": "string", "format": "date-time" }
         }
@@ -361,14 +415,15 @@
         "type": "object",
         "required": ["suite_name", "total", "passed", "failed"],
         "properties": {
-          "suite_name": { "type": "string", "example": "auth" },
-          "total": { "type": "integer", "example": 4 },
-          "passed": { "type": "integer", "example": 3 },
-          "failed": { "type": "integer", "example": 1 },
+          "suite_name": { "type": "string", "example": "01-login" },
+          "total": { "type": "integer", "example": 10 },
+          "passed": { "type": "integer", "example": 10 },
+          "failed": { "type": "integer", "example": 0 },
           "project_id": { "type": "integer", "description": "Existing project ID" },
-          "project_name": { "type": "string", "description": "Project name (auto-creates if not exists)", "example": "my-api" },
+          "project_name": { "type": "string", "description": "Project name — auto-creates project if not exists", "example": "manajemen-distrik" },
           "event_name": { "type": "string", "example": "Sanity Check", "default": "Test Run" },
-          "trigger": { "type": "string", "example": "ci", "default": "manual" },
+          "description": { "type": "string", "description": "Short description of what this test run covers", "example": "Quick smoke test after deployment" },
+          "trigger": { "type": "string", "example": "manual", "default": "manual", "enum": ["manual", "ci", "scheduled"] },
           "cases": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/TestCaseInput" }
@@ -380,18 +435,19 @@
         "required": ["suites"],
         "properties": {
           "project_id": { "type": "integer" },
-          "project_name": { "type": "string", "example": "my-api" },
-          "event_name": { "type": "string", "example": "Full Regression", "default": "Test Run" },
-          "trigger": { "type": "string", "example": "scheduled", "default": "manual" },
+          "project_name": { "type": "string", "description": "Project name — auto-creates project if not exists", "example": "manajemen-distrik" },
+          "event_name": { "type": "string", "example": "E2E Run 2026-03-01", "default": "Test Run" },
+          "description": { "type": "string", "description": "Short description of what this test run covers", "example": "E2E testing case untuk improvement management wilayah" },
+          "trigger": { "type": "string", "example": "ci", "default": "manual", "enum": ["manual", "ci", "scheduled"] },
           "suites": {
             "type": "array",
             "items": {
               "type": "object",
               "required": ["suite_name", "total", "passed", "failed"],
               "properties": {
-                "suite_name": { "type": "string", "example": "auth" },
-                "total": { "type": "integer", "example": 4 },
-                "passed": { "type": "integer", "example": 3 },
+                "suite_name": { "type": "string", "example": "06-access-control" },
+                "total": { "type": "integer", "example": 8 },
+                "passed": { "type": "integer", "example": 7 },
                 "failed": { "type": "integer", "example": 1 },
                 "cases": {
                   "type": "array",
@@ -406,13 +462,13 @@
         "type": "object",
         "required": ["case_name", "status"],
         "properties": {
-          "case_id": { "type": "string", "example": "1.5" },
-          "case_name": { "type": "string", "example": "Login with valid credentials" },
-          "description": { "type": "string", "example": "Verifies user can log in" },
-          "module": { "type": "string", "example": "authentication" },
+          "case_id": { "type": "string", "example": "6.1" },
+          "case_name": { "type": "string", "example": "Admin can view all districts" },
+          "description": { "type": "string", "example": "Verifies admin has read access to all district data" },
+          "module": { "type": "string", "example": "access-control" },
           "type": { "type": "string", "enum": ["positive", "negative"], "example": "positive" },
           "status": { "type": "string", "enum": ["pass", "fail", "skip"], "example": "pass" },
-          "error_message": { "type": "string" },
+          "error_message": { "type": "string", "example": "Expected 403 but got 200" },
           "duration_ms": { "type": "integer", "example": 120 }
         }
       },
@@ -421,10 +477,10 @@
         "properties": {
           "id": { "type": "integer" },
           "run_id": { "type": "integer" },
-          "case_id": { "type": "string", "example": "1.5" },
-          "case_name": { "type": "string", "example": "Login with valid credentials" },
+          "case_id": { "type": "string", "example": "6.1" },
+          "case_name": { "type": "string", "example": "Admin can view all districts" },
           "description": { "type": "string" },
-          "module": { "type": "string", "example": "authentication" },
+          "module": { "type": "string", "example": "access-control" },
           "type": { "type": "string", "enum": ["positive", "negative"] },
           "status": { "type": "string", "enum": ["pass", "fail", "skip"] },
           "error_message": { "type": "string" },
@@ -437,10 +493,10 @@
       "Summary": {
         "type": "object",
         "properties": {
-          "run_count": { "type": "string", "example": "5" },
-          "total_tests": { "type": "string", "example": "61" },
-          "total_passed": { "type": "string", "example": "56" },
-          "total_failed": { "type": "string", "example": "5" }
+          "run_count": { "type": "string", "example": "15" },
+          "total_tests": { "type": "string", "example": "212" },
+          "total_passed": { "type": "string", "example": "208" },
+          "total_failed": { "type": "string", "example": "4" }
         }
       }
     }

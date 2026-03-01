@@ -7,7 +7,9 @@ A lightweight dashboard for monitoring end-to-end test results across multiple p
 - Multi-project support with per-project test history
 - 3-level navigation: Projects → Event History → Suite Detail
 - Per-suite test case breakdown with pass/fail/skip status
-- Event-based grouping (one push = one event with multiple suites)
+- Event-based grouping (one submission = one event with multiple suites)
+- Optional `description` field to annotate the purpose of each test run
+- Retains up to **15 events** per project (oldest auto-deleted)
 - Auto-refresh every 10 seconds
 - Interactive API docs via Swagger UI
 
@@ -60,14 +62,16 @@ A lightweight dashboard for monitoring end-to-end test results across multiple p
 curl -X POST http://localhost:3000/api/results \
   -H "Content-Type: application/json" \
   -d '{
-    "project_name": "my-app",
-    "suite_name": "auth",
-    "total": 12,
-    "passed": 11,
-    "failed": 1,
+    "project_name": "manajemen-distrik",
+    "event_name": "Sanity Check",
+    "description": "Quick smoke test after deployment",
+    "trigger": "manual",
+    "suite_name": "01-login",
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
     "cases": [
-      { "case_name": "login with valid credentials", "status": "pass" },
-      { "case_name": "login with invalid password", "status": "fail", "error_message": "Expected 401, got 200" }
+      { "case_id": "1.1", "case_name": "Login with valid credentials", "module": "auth", "type": "positive", "status": "pass", "duration_ms": 120 }
     ]
   }'
 ```
@@ -78,12 +82,14 @@ curl -X POST http://localhost:3000/api/results \
 curl -X POST http://localhost:3000/api/results \
   -H "Content-Type: application/json" \
   -d '{
-    "project_name": "my-app",
-    "event_name": "CI - main branch",
-    "trigger": "push",
+    "project_name": "manajemen-distrik",
+    "event_name": "E2E Run 2026-03-01",
+    "description": "E2E testing case untuk improvement management wilayah",
+    "trigger": "ci",
     "suites": [
-      { "suite_name": "auth", "total": 10, "passed": 10, "failed": 0 },
-      { "suite_name": "checkout", "total": 8, "passed": 7, "failed": 1 }
+      { "suite_name": "01-login", "total": 10, "passed": 10, "failed": 0 },
+      { "suite_name": "04-audit-trail", "total": 7, "passed": 7, "failed": 0 },
+      { "suite_name": "06-access-control", "total": 8, "passed": 7, "failed": 1 }
     ]
   }'
 ```
@@ -103,13 +109,32 @@ npm run post-results
 | `GET` | `/api/projects/overview` | All projects with latest event stats |
 | `GET` | `/api/projects` | List all projects |
 | `POST` | `/api/projects` | Register a new project |
-| `POST` | `/api/results` | Submit test results |
-| `GET` | `/api/events?project_id=` | Event history for a project (max 5) |
+| `POST` | `/api/results` | Submit test results (single or multi-suite) |
+| `GET` | `/api/events?project_id=` | Event history for a project (max 15) |
 | `GET` | `/api/events/:id` | Event detail with suites and cases |
 | `GET` | `/api/results/:id/cases` | Test cases for a suite run |
 | `GET` | `/api/summary` | Aggregated stats |
+| `GET` | `/api/cases` | Filter test cases globally |
 
 Full interactive docs at `/api-docs`.
+
+## POST /api/results — Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `project_name` | string | yes* | Auto-creates project if not exists |
+| `project_id` | integer | yes* | Use instead of `project_name` |
+| `event_name` | string | no | Label for this run. Default: `"Test Run"` |
+| `description` | string | no | Short annotation, e.g. `"E2E testing case untuk improvement management wilayah"` |
+| `trigger` | string | no | `manual` / `ci` / `scheduled`. Default: `manual` |
+| `suites` | array | yes† | Array of suite objects (multi-suite format) |
+| `suite_name` | string | yes† | Suite name (single-suite format) |
+| `total` | integer | yes† | Total test cases (single-suite format) |
+| `passed` | integer | yes† | Passed count (single-suite format) |
+| `failed` | integer | yes† | Failed count (single-suite format) |
+
+*one of `project_name` or `project_id` is required
+†use either `suites` array **or** `suite_name + total + passed + failed`
 
 ## Project Structure
 
