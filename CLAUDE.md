@@ -1,74 +1,50 @@
-# E2E Test Dashboard — Project Knowledge
+# E2E Dashboard — Project Knowledge
 
-## Overview
-Lightweight dashboard untuk monitoring hasil test suite. Stack: **Express + PostgreSQL**, single-file frontend (`public/index.html`), no build step.
+## Stack
+Express 4 + PostgreSQL (`pg`) + Vanilla JS frontend. No build step. Node >= 18.
 
-## Running the Server
+## Run & Restart
 ```sh
-npm start          # node server.js
-npm run post-results  # kirim dummy test data ke server
+npm start                          # jalankan server (port 3000)
+npm run post-results               # kirim sample data
+kill $(lsof -ti :3000) && node server.js &  # restart setelah edit server.js
 ```
-Server jalan di `http://localhost:3000`. Swagger UI di `http://localhost:3000/api-docs`.
-
-**Setelah edit `server.js`, server harus di-restart manual** — tidak ada hot reload.
-
-```sh
-# Cara restart:
-lsof -i :3000 | grep LISTEN   # cari PID
-kill <PID>
-node server.js &
-```
-
-## Stack & Dependencies
-- **Runtime**: Node.js >= 18
-- **Framework**: Express 4
-- **Database**: PostgreSQL (via `pg`)
-- **Env**: `dotenv` (file `.env`, template di `.env.example`)
-- **API Docs**: Swagger UI Express + `swagger.json`
-- **Frontend**: Vanilla JS, no framework, no build step
+- Dashboard: `http://localhost:3000` — Swagger: `http://localhost:3000/api-docs`
+- **Server harus di-restart manual** setelah edit `server.js` (tidak ada hot reload)
 
 ## Database Schema
-Tabel utama (auto-created saat `initDb()`):
+Auto-created via `initDb()` + migrations on startup.
 
 | Tabel | Keterangan |
 |-------|-----------|
-| `projects` | Daftar project (name UNIQUE) |
-| `events` | Satu event = satu test run, berisi agregat stats. Max 5 event per project (auto-prune oldest). |
-| `test_runs` | Satu suite per event, linked ke `events.id` via `event_id` |
+| `projects` | `name UNIQUE` |
+| `events` | 1 event = 1 test run. Fields: `event_name`, `description`, `trigger`, `total/passed/failed/skipped`. Max **15** per project (auto-prune). |
+| `test_runs` | 1 suite per row, linked ke `events.id` via `event_id` |
 | `test_cases` | Test case individual, linked ke `test_runs.id` |
 
-## Key API Endpoints
+## API Endpoints
 
 | Method | Path | Keterangan |
 |--------|------|-----------|
 | `GET` | `/api/projects/overview` | Projects + stats event terakhir (LATERAL JOIN) |
-| `GET` | `/api/projects` | List semua project |
-| `POST` | `/api/projects` | Register project baru |
-| `POST` | `/api/results` | Submit test results (single suite atau multi-suite) |
-| `GET` | `/api/events?project_id=` | Event history satu project (max 5) |
+| `GET/POST` | `/api/projects` | List / register project |
+| `POST` | `/api/results` | Submit hasil test. Fields: `project_name`, `event_name`, `description`, `trigger`, `suites[]` atau single-suite |
+| `GET` | `/api/events?project_id=` | Event history (max 15) |
 | `GET` | `/api/events/:id` | Detail event: runs + cases |
 | `GET` | `/api/results/:id/cases` | Test cases satu run |
 | `GET` | `/api/summary` | Aggregated stats |
+| `GET` | `/api/cases` | Filter test cases global |
 
-## Frontend Navigation (3-level)
-1. **Landing** (`view-projects`) — Grid card tiap project + status last run (PASS/FAIL, stats)
-2. **Event History** (`view-events`) — List events untuk project yang dipilih
-3. **Event Detail** (`view-detail`) — Summary cards + tabel suites, expandable test cases per suite
+## Frontend (3-level Navigation)
+1. `view-projects` — Grid project cards + status last run
+2. `view-events` — Event history project. Tampilkan `description` (italic) di bawah nama event
+3. `view-detail` — Summary cards + tabel suites + expandable test cases. Breadcrumb pakai `description` jika ada.
 
-Auto-refresh setiap **10 detik**, hanya refresh view yang aktif.
-
-## File Structure
-```
-server.js              Express server + DB init + semua API routes
-public/index.html      Full frontend (CSS + HTML + JS, semua inline)
-swagger.json           OpenAPI spec untuk Swagger UI
-e2e/post-results.js    Script kirim dummy test data
-.env.example           Template environment variable
-```
+Auto-refresh **10 detik**, hanya view aktif. `projectsData[]` disimpan global — `onclick` card cukup kirim `id`.
 
 ## Conventions
-- Frontend: dark theme (`#0f172a` background), warna: green `#4ade80`, red `#f87171`, blue `#60a5fa`, yellow `#fbbf24`
-- Favicon: SVG inline di `<head>`, tidak ada file favicon terpisah
-- Title: "E2E Test Dashboard"
-- Module badge di test cases menggunakan warna dari array `MODULE_COLORS` (round-robin)
-- Error di frontend di-catch dan di-console.error — **pastikan UI update ke error state** jika fetch gagal
+- Dark theme: bg `#0f172a`, green `#4ade80`, red `#f87171`, blue `#60a5fa`, yellow `#fbbf24`
+- Favicon SVG inline di `<head>`, title: **"E2E Test Dashboard"**
+- Module badge warna dari `MODULE_COLORS[]` (round-robin)
+- Git: `user.email = ahmad.asror@gmail.com`
+- Remote: `https://github.com/ahmadasror/e2e`
