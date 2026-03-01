@@ -84,12 +84,8 @@ async function pruneEvents(projectId) {
   }
 }
 
-const swaggerUi = require("swagger-ui-express");
-const swaggerDoc = require("./swagger.json");
-
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDoc));
 
 // POST /api/projects — register a new project
 app.post("/api/projects", async (req, res) => {
