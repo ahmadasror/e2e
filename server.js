@@ -71,6 +71,10 @@ async function initDb() {
   await pool.query(`
     ALTER TABLE events ADD COLUMN IF NOT EXISTS description TEXT
   `);
+
+  // Performance indexes
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_events_project_created ON events(project_id, created_at DESC)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_test_cases_run_status ON test_cases(run_id, status)`);
 }
 
 async function pruneEvents(projectId) {
@@ -86,6 +90,60 @@ async function pruneEvents(projectId) {
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+
+// GET /health — health check
+app.get("/health", async (req, res) => {
+  let dbOk = false;
+  try {
+    await pool.query("SELECT 1");
+    dbOk = true;
+  } catch (_) {}
+  res.json({ status: "ok", db: dbOk, uptime: process.uptime() });
+});
+
+// GET /api/projects/:id/trend — pass rate trend (last 15 events)
+app.get("/api/projects/:id/trend", async (req, res) => {
+  const result = await pool.query(
+    `SELECT event_name, passed, total, failed, created_at
+     FROM events WHERE project_id = $1
+     ORDER BY created_at DESC LIMIT 15`,
+    [req.params.id]
+  );
+  res.json(result.rows.reverse());
+});
+
+// GET /api/projects/:id/flaky — flaky test detection
+app.get("/api/projects/:id/flaky", async (req, res) => {
+  const result = await pool.query(
+    `SELECT tc.case_name, tr.suite_name,
+            COUNT(DISTINCT tc.status) AS status_count,
+            COUNT(*) FILTER (WHERE tc.status = 'pass') AS pass_count,
+            COUNT(*) FILTER (WHERE tc.status = 'fail') AS fail_count
+     FROM test_cases tc
+     JOIN test_runs tr ON tr.id = tc.run_id
+     JOIN events e ON e.id = tr.event_id
+     WHERE e.project_id = $1
+     GROUP BY tc.case_name, tr.suite_name
+     HAVING COUNT(DISTINCT tc.status) FILTER (WHERE tc.status IN ('pass','fail')) > 1`,
+    [req.params.id]
+  );
+  res.json(result.rows);
+});
+
+// GET /api/events/:id/failure-groups — group failures by error message
+app.get("/api/events/:id/failure-groups", async (req, res) => {
+  const result = await pool.query(
+    `SELECT tc.error_message, COUNT(*) AS count,
+            json_agg(json_build_object('case_name', tc.case_name, 'suite_name', tr.suite_name)) AS cases
+     FROM test_cases tc
+     JOIN test_runs tr ON tr.id = tc.run_id
+     WHERE tr.event_id = $1 AND tc.status = 'fail'
+     GROUP BY tc.error_message
+     ORDER BY count DESC`,
+    [req.params.id]
+  );
+  res.json(result.rows);
+});
 
 // POST /api/projects — register a new project
 app.post("/api/projects", async (req, res) => {
@@ -404,7 +462,7 @@ process.on("SIGINT", async () => {
 
 initDb().then(() => {
   app.listen(PORT, () => {
-    console.log(`Dashboard running at http://localhost:${PORT}`);
+    console.log(`TestPulse running at http://localhost:${PORT}`);
   });
 }).catch((err) => {
   console.error("Failed to initialize database:", err);

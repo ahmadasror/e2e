@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>E2E Test Dashboard</title>
+  <title>TestPulse</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230f172a'/%3E%3Crect x='5' y='5' width='22' height='22' rx='3' fill='%231e293b' stroke='%23334155' stroke-width='1'/%3E%3Ccircle cx='11' cy='12' r='2' fill='%234ade80'/%3E%3Ccircle cx='11' cy='20' r='2' fill='%23f87171'/%3E%3Crect x='16' y='10.5' width='9' height='3' rx='1.5' fill='%2360a5fa'/%3E%3Crect x='16' y='18.5' width='6' height='3' rx='1.5' fill='%2360a5fa'/%3E%3C/svg%3E">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -285,6 +285,9 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: #94a3b8;
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
 
     tr:not(:last-child) td { border-bottom: 1px solid #334155; }
@@ -346,6 +349,19 @@
       text-transform: uppercase;
       border: 1px solid #334155;
     }
+    .trigger-badge-ci { border-color: #60a5fa; color: #60a5fa; }
+    .trigger-badge-manual { border-color: #64748b; color: #94a3b8; }
+    .trigger-badge-scheduled { border-color: #a855f7; color: #a855f7; }
+
+    .badge-stale {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      background: #78350f;
+      color: #fbbf24;
+    }
 
     .badge-module {
       display: inline-block;
@@ -402,6 +418,69 @@
       color: #64748b;
       margin-bottom: 0.75rem;
     }
+
+    .search-box {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #e2e8f0;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .search-box:focus { border-color: #60a5fa; }
+    .search-box::placeholder { color: #475569; }
+
+    .sparkline-wrap {
+      margin-top: 0.5rem;
+      height: 28px;
+    }
+    .sparkline-wrap svg { display: block; }
+
+    .flaky-banner {
+      background: #78350f;
+      border: 1px solid #92400e;
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.82rem;
+      color: #fbbf24;
+    }
+    .flaky-banner summary { cursor: pointer; font-weight: 600; }
+    .flaky-item { color: #e2e8f0; padding: 0.25rem 0; font-size: 0.8rem; }
+
+    .failure-groups {
+      margin-bottom: 1.5rem;
+    }
+    .failure-group-card {
+      background: #1e293b;
+      border: 1px solid #7f1d1d;
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      overflow: hidden;
+    }
+    .failure-group-card summary {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      font-size: 0.82rem;
+      color: #f87171;
+      font-weight: 600;
+    }
+    .failure-group-cases {
+      padding: 0 1rem 0.75rem 1.5rem;
+      font-size: 0.78rem;
+      color: #94a3b8;
+    }
+
+    .sort-bar {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+      align-items: center;
+    }
   </style>
 </head>
 <body>
@@ -410,11 +489,12 @@
   <div id="view-projects" class="view active">
     <div class="header">
       <div class="header-left">
-        <h1>E2E Test Dashboard</h1>
+        <h1>TestPulse</h1>
       </div>
       <a href="/api-docs" class="api-docs-link">API Docs</a>
     </div>
     <div class="section-title">Projects</div>
+    <input type="text" class="search-box" id="project-search" placeholder="Search projects..." oninput="onSearchInput()">
     <div class="projects-grid" id="projects-grid">
       <div class="placeholder">Loading...</div>
     </div>
@@ -433,6 +513,7 @@
       </div>
       <a href="/api-docs" class="api-docs-link">API Docs</a>
     </div>
+    <div id="flaky-banner-container"></div>
     <div id="events-list-container">
       <div class="placeholder">Loading...</div>
     </div>
@@ -475,7 +556,13 @@
         <div class="label">Skipped</div>
         <div class="value yellow" id="d-skipped">-</div>
       </div>
+      <div class="card">
+        <div class="label">Duration</div>
+        <div class="value blue" id="d-duration">-</div>
+      </div>
     </div>
+
+    <div id="failure-groups-container"></div>
 
     <div class="filter-bar">
       <span style="font-size:0.8rem;color:#64748b;margin-right:0.25rem">Filter:</span>
@@ -483,6 +570,13 @@
       <button class="filter-btn" onclick="setFilter('pass')">Pass</button>
       <button class="filter-btn" onclick="setFilter('fail')">Fail</button>
       <button class="filter-btn" onclick="setFilter('skip')">Skip</button>
+    </div>
+
+    <div class="sort-bar">
+      <span style="font-size:0.8rem;color:#64748b;margin-right:0.25rem">Sort:</span>
+      <button class="filter-btn active" onclick="setSuiteSort('default')">Default</button>
+      <button class="filter-btn" onclick="setSuiteSort('failures')">Failures first</button>
+      <button class="filter-btn" onclick="setSuiteSort('duration')">Duration</button>
     </div>
 
     <table>
@@ -493,11 +587,12 @@
           <th>Total</th>
           <th>Passed</th>
           <th>Failed</th>
+          <th>Duration</th>
           <th>Status</th>
         </tr>
       </thead>
       <tbody id="suites-body">
-        <tr><td colspan="6" class="placeholder">Loading...</td></tr>
+        <tr><td colspan="7" class="placeholder">Loading...</td></tr>
       </tbody>
     </table>
     <div class="refresh-note">Click a suite row to expand test cases</div>
@@ -533,6 +628,11 @@
       return `${days}d ago`;
     }
 
+    function isStale(dateStr) {
+      if (!dateStr) return false;
+      return (Date.now() - new Date(dateStr).getTime()) > 24 * 60 * 60 * 1000;
+    }
+
     function esc(str) {
       if (str == null) return "";
       const d = document.createElement("div");
@@ -546,6 +646,29 @@
         : '<span class="badge badge-fail">FAIL</span>';
     }
 
+    function triggerClass(trigger) {
+      if (trigger === 'ci') return 'trigger-badge-ci';
+      if (trigger === 'scheduled') return 'trigger-badge-scheduled';
+      return 'trigger-badge-manual';
+    }
+
+    function formatDuration(ms) {
+      if (ms == null || ms === 0) return "-";
+      if (ms < 1000) return ms + "ms";
+      if (ms < 60000) return (ms / 1000).toFixed(1) + "s";
+      return (ms / 60000).toFixed(1) + "m";
+    }
+
+    let searchDebounce = null;
+    function onSearchInput() {
+      clearTimeout(searchDebounce);
+      searchDebounce = setTimeout(() => {
+        const q = document.getElementById("project-search").value.toLowerCase();
+        const filtered = projectsData.filter(p => p.name.toLowerCase().includes(q));
+        renderProjects(filtered);
+      }, 150);
+    }
+
     // ── State ──────────────────────────────────────────────
     let currentProjectId = null;
     let currentProjectName = "";
@@ -554,6 +677,73 @@
     let casesCache = {};
     let statusFilter = "";
     let currentEventData = null;
+    let suiteSort = "default";
+    let trendCache = {};
+
+    // ── Hash routing ──────────────────────────────────────
+    function updateHash(hash) {
+      if (window.location.hash !== hash) {
+        history.pushState(null, "", hash);
+      }
+    }
+
+    function parseHash() {
+      const hash = window.location.hash;
+      if (hash.startsWith("#event/")) {
+        const id = parseInt(hash.slice(7));
+        if (id) return { view: "event", id };
+      }
+      if (hash.startsWith("#project/")) {
+        const id = parseInt(hash.slice(9));
+        if (id) return { view: "project", id };
+      }
+      return { view: "projects" };
+    }
+
+    async function navigateFromHash() {
+      const route = parseHash();
+      if (route.view === "event") {
+        if (!currentProjectId) {
+          // Need to figure out project from event
+          try {
+            const res = await fetch(`/api/events/${route.id}`);
+            if (res.ok) {
+              const event = await res.json();
+              currentProjectId = event.project_id;
+              currentProjectName = event.project_name || "";
+              document.getElementById("events-project-name").textContent = currentProjectName;
+            }
+          } catch (_) {}
+        }
+        currentEventId = route.id;
+        expandedSuites.clear();
+        casesCache = {};
+        statusFilter = "";
+        suiteSort = "default";
+        showView("view-detail");
+        loadEventDetail();
+      } else if (route.view === "project") {
+        if (!projectsData.length) {
+          await loadProjects();
+        }
+        const p = projectsData.find(p => p.id === route.id);
+        currentProjectId = route.id;
+        currentProjectName = p ? p.name : "";
+        currentEventId = null;
+        document.getElementById("events-project-name").textContent = currentProjectName;
+        showView("view-events");
+        loadEvents();
+        loadFlaky();
+      } else {
+        currentProjectId = null;
+        currentProjectName = "";
+        currentEventId = null;
+        showView("view-projects");
+        loadProjects();
+      }
+    }
+
+    window.addEventListener("popstate", navigateFromHash);
 
     // ── View switching ─────────────────────────────────────
     function showView(id) {
@@ -567,15 +757,29 @@
       currentEventId = null;
       expandedSuites.clear();
       casesCache = {};
+      updateHash("#projects");
       showView("view-projects");
+      updateTitle();
     }
 
     function goToEvents() {
       currentEventId = null;
       expandedSuites.clear();
       casesCache = {};
+      updateHash(`#project/${currentProjectId}`);
       showView("view-events");
       loadEvents();
+      loadFlaky();
+      updateTitle();
+    }
+
+    // ── Tab title ─────────────────────────────────────────
+    function updateTitle(failCount) {
+      if (failCount > 0) {
+        document.title = `(${failCount} FAIL) TestPulse`;
+      } else {
+        document.title = "TestPulse";
+      }
     }
 
     // ── View 1: Projects ──────────────────────────────────
@@ -586,11 +790,51 @@
         const res = await fetch("/api/projects/overview");
         const projects = await res.json();
         projectsData = projects;
-        renderProjects(projects);
+        const q = document.getElementById("project-search").value.toLowerCase();
+        const filtered = q ? projects.filter(p => p.name.toLowerCase().includes(q)) : projects;
+        renderProjects(filtered);
+        // Fetch trends for sparklines
+        for (const p of projects) {
+          if (p.latest_event_id && !trendCache[p.id]) {
+            fetchTrend(p.id);
+          }
+        }
       } catch (err) {
         console.error(err);
         document.getElementById("projects-grid").innerHTML = '<div class="placeholder">Failed to load projects.</div>';
       }
+    }
+
+    async function fetchTrend(projectId) {
+      try {
+        const res = await fetch(`/api/projects/${projectId}/trend`);
+        const data = await res.json();
+        trendCache[projectId] = data;
+        renderSparkline(projectId, data);
+      } catch (_) {}
+    }
+
+    function renderSparkline(projectId, data) {
+      const el = document.getElementById(`sparkline-${projectId}`);
+      if (!el || data.length < 2) return;
+
+      const rates = data.map(d => d.total > 0 ? (d.passed / d.total) * 100 : 0);
+      const w = 120, h = 24;
+      const step = w / (rates.length - 1);
+      const min = Math.min(...rates);
+      const max = Math.max(...rates);
+      const range = max - min || 1;
+
+      const points = rates.map((r, i) => {
+        const x = i * step;
+        const y = h - ((r - min) / range) * (h - 4) - 2;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(" ");
+
+      const trending = rates[rates.length - 1] >= rates[Math.max(0, rates.length - 4)];
+      const color = trending ? "#4ade80" : "#f87171";
+
+      el.innerHTML = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${points}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     }
 
     function renderProjects(projects) {
@@ -603,6 +847,7 @@
       grid.innerHTML = projects.map(p => {
         const hasRun = p.latest_event_id != null;
         const badge = hasRun ? passBadge(Number(p.latest_failed)) : "";
+        const staleBadge = hasRun && isStale(p.latest_event_at) ? ' <span class="badge-stale">STALE</span>' : "";
 
         const statsHtml = hasRun ? `
           <div class="project-stats">
@@ -610,7 +855,7 @@
             <span class="stat-item red">&#10007;&nbsp;${p.latest_failed}</span>
             <span class="stat-item yellow">&#8960;&nbsp;${p.latest_skipped}</span>
             <span style="flex:1"></span>
-            ${badge}
+            ${badge}${staleBadge}
           </div>` : `<div class="no-runs-label">No test runs yet</div>`;
 
         const lastRunHtml = hasRun
@@ -627,9 +872,15 @@
           <div class="project-card-footer">
             ${lastRunHtml}
             ${statsHtml}
+            <div class="sparkline-wrap" id="sparkline-${p.id}"></div>
           </div>
         </div>`;
       }).join("");
+
+      // Re-render cached sparklines
+      for (const p of projects) {
+        if (trendCache[p.id]) renderSparkline(p.id, trendCache[p.id]);
+      }
     }
 
     function openProject(id) {
@@ -637,8 +888,11 @@
       currentProjectId = id;
       currentProjectName = p ? p.name : "";
       document.getElementById("events-project-name").textContent = currentProjectName;
+      updateHash(`#project/${id}`);
       showView("view-events");
       loadEvents();
+      loadFlaky();
+      updateTitle();
     }
 
     // ── View 2: Event History ─────────────────────────────
@@ -651,6 +905,39 @@
       } catch (err) {
         console.error(err);
       }
+    }
+
+    async function loadFlaky() {
+      if (!currentProjectId) return;
+      try {
+        const res = await fetch(`/api/projects/${currentProjectId}/flaky`);
+        const flaky = await res.json();
+        const container = document.getElementById("flaky-banner-container");
+        if (flaky.length === 0) {
+          container.innerHTML = "";
+          return;
+        }
+        container.innerHTML = `
+          <details class="flaky-banner">
+            <summary>${flaky.length} flaky test${flaky.length > 1 ? "s" : ""} detected</summary>
+            <div style="margin-top:0.5rem">
+              ${flaky.map(f => `<div class="flaky-item">${esc(f.case_name)} <span style="color:#64748b">(${esc(f.suite_name)}) — ${f.pass_count} pass / ${f.fail_count} fail</span></div>`).join("")}
+            </div>
+          </details>`;
+      } catch (_) {
+        document.getElementById("flaky-banner-container").innerHTML = "";
+      }
+    }
+
+    function computeEventDuration(eventId) {
+      // Sum duration from all cases for all runs of this event
+      let total = 0;
+      for (const [, cases] of Object.entries(casesCache)) {
+        for (const c of cases) {
+          if (c.duration_ms) total += c.duration_ms;
+        }
+      }
+      return total;
     }
 
     function renderEvents(events) {
@@ -666,7 +953,7 @@
             <div class="event-name">${esc(e.event_name)}</div>
             ${e.description ? `<div class="event-description">${esc(e.description)}</div>` : ""}
             <div class="event-meta">
-              <span class="trigger-badge">${esc(e.trigger)}</span>
+              <span class="trigger-badge ${triggerClass(e.trigger)}">${esc(e.trigger)}</span>
               ${timeAgo(e.created_at)}
               &middot; ${new Date(e.created_at).toLocaleString()}
             </div>
@@ -690,7 +977,10 @@
       expandedSuites.clear();
       casesCache = {};
       statusFilter = "";
-      document.querySelectorAll(".filter-btn").forEach((b, i) => b.classList.toggle("active", i === 0));
+      suiteSort = "default";
+      document.querySelectorAll("#view-detail .filter-bar .filter-btn").forEach((b, i) => b.classList.toggle("active", i === 0));
+      document.querySelectorAll(".sort-bar .filter-btn").forEach((b, i) => b.classList.toggle("active", i === 0));
+      updateHash(`#event/${eventId}`);
       showView("view-detail");
       loadEventDetail();
     }
@@ -710,6 +1000,20 @@
           if (!casesCache[c.run_id]) casesCache[c.run_id] = [];
           casesCache[c.run_id].push(c);
         }
+
+        // Compute total duration from all cases
+        let totalDuration = 0;
+        for (const c of event.cases || []) {
+          if (c.duration_ms) totalDuration += c.duration_ms;
+        }
+        // Also compute per-run durations for the table
+        const runDurations = {};
+        for (const c of event.cases || []) {
+          if (c.duration_ms) {
+            runDurations[c.run_id] = (runDurations[c.run_id] || 0) + c.duration_ms;
+          }
+        }
+        event._runDurations = runDurations;
 
         // Header
         document.getElementById("detail-event-name").textContent = event.event_name;
@@ -731,16 +1035,47 @@
         document.getElementById("d-skipped").textContent = event.skipped;
         document.getElementById("d-pass-pct").textContent = total > 0 ? ((passed/total)*100).toFixed(1)+"%" : "";
         document.getElementById("d-fail-pct").textContent = total > 0 ? ((failed/total)*100).toFixed(1)+"%" : "";
+        document.getElementById("d-duration").textContent = formatDuration(totalDuration);
+
+        // Update tab title with fail count
+        updateTitle(failed);
 
         renderSuites(event.runs);
+        loadFailureGroups();
       } catch (err) {
         console.error(err);
       }
     }
 
+    async function loadFailureGroups() {
+      if (!currentEventId) return;
+      const container = document.getElementById("failure-groups-container");
+      try {
+        const res = await fetch(`/api/events/${currentEventId}/failure-groups`);
+        const groups = await res.json();
+        if (groups.length === 0) {
+          container.innerHTML = "";
+          return;
+        }
+        container.innerHTML = `
+          <div class="failure-groups">
+            <div class="section-title">Failure Groups</div>
+            ${groups.map(g => `
+              <details class="failure-group-card">
+                <summary>${esc(g.error_message || "No error message")} (${g.count} case${g.count > 1 ? "s" : ""})</summary>
+                <div class="failure-group-cases">
+                  ${g.cases.map(c => `<div>${esc(c.case_name)} <span style="color:#475569">· ${esc(c.suite_name)}</span></div>`).join("")}
+                </div>
+              </details>`).join("")}
+          </div>`;
+      } catch (_) {
+        container.innerHTML = "";
+      }
+    }
+
     function setFilter(f) {
       statusFilter = f;
-      document.querySelectorAll(".filter-btn").forEach(b => {
+      document.querySelectorAll("#view-detail .filter-bar .filter-btn").forEach(b => {
         const label = b.textContent.toLowerCase();
         b.classList.toggle("active",
           (f === "" && label === "all") ||
@@ -750,14 +1085,42 @@
       renderExpandedCases();
     }
 
+    function setSuiteSort(s) {
+      suiteSort = s;
+      document.querySelectorAll(".sort-bar .filter-btn").forEach(b => {
+        const label = b.textContent.toLowerCase();
+        b.classList.toggle("active",
+          (s === "default" && label === "default") ||
+          (s === "failures" && label === "failures first") ||
+          (s === "duration" && label === "duration")
+        );
+      });
+      if (currentEventData) renderSuites(currentEventData.runs);
+    }
+
+    function getSortedRuns(runs) {
+      if (!runs) return [];
+      const sorted = [...runs];
+      if (suiteSort === "failures") {
+        sorted.sort((a, b) => b.failed - a.failed);
+      } else if (suiteSort === "duration") {
+        const dur = currentEventData?._runDurations || {};
+        sorted.sort((a, b) => (dur[b.id] || 0) - (dur[a.id] || 0));
+      }
+      return sorted;
+    }
+
     function renderSuites(runs) {
       const tbody = document.getElementById("suites-body");
       if (!runs || runs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="placeholder">No suites found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="placeholder">No suites found</td></tr>';
         return;
       }
 
-      tbody.innerHTML = runs.map(r => {
+      const sorted = getSortedRuns(runs);
+      const dur = currentEventData?._runDurations || {};
+
+      tbody.innerHTML = sorted.map(r => {
         const isExpanded = expandedSuites.has(r.id);
         const arrow = `<span class="expand-icon ${isExpanded ? "open" : ""}">&#9654;</span>`;
         let html = `<tr class="suite-row" onclick="toggleSuite(${r.id})">
@@ -766,11 +1129,12 @@
           <td>${r.total}</td>
           <td class="green">${r.passed}</td>
           <td class="${r.failed > 0 ? "red" : ""}">${r.failed}</td>
+          <td>${formatDuration(dur[r.id])}</td>
           <td>${passBadge(r.failed)}</td>
         </tr>`;
 
         if (isExpanded) {
-          html += `<tr class="cases-row" id="cases-${r.id}"><td colspan="6"><div class="cases-container"><div class="placeholder">Loading cases...</div></div></td></tr>`;
+          html += `<tr class="cases-row" id="cases-${r.id}"><td colspan="7"><div class="cases-container"><div class="placeholder">Loading cases...</div></div></td></tr>`;
         }
         return html;
       }).join("");
@@ -786,6 +1150,8 @@
       if (expandedSuites.has(runId)) {
         expandedSuites.delete(runId);
       } else {
+        // Auto-collapse others
+        expandedSuites.clear();
         expandedSuites.add(runId);
       }
       if (currentEventData) renderSuites(currentEventData.runs);
@@ -868,7 +1234,16 @@
     }
 
     // ── Init ──────────────────────────────────────────────
-    loadProjects();
+    (async function init() {
+      const route = parseHash();
+      if (route.view === "projects") {
+        loadProjects();
+      } else {
+        // Load projects data in background for reference
+        fetch("/api/projects/overview").then(r => r.json()).then(data => { projectsData = data; }).catch(() => {});
+        navigateFromHash();
+      }
+    })();
     setInterval(refresh, 10000);
   </script>
 </body>

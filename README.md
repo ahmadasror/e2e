@@ -1,17 +1,22 @@
-# E2E Dashboard
+# TestPulse
 
-A lightweight dashboard for monitoring end-to-end test results across multiple projects. Built with Express and PostgreSQL — no build step required.
+A lightweight, self-hosted dashboard for monitoring test results across multiple projects. Built with Express and PostgreSQL — no build step required.
+
+*Keep your finger on the pulse of every test run.*
 
 ## Features
 
 - Multi-project support with per-project test history
 - 3-level navigation: Projects → Event History → Suite Detail
 - Per-suite test case breakdown with pass/fail/skip status
+- Flaky test detection — automatically flags tests with inconsistent results
+- Failure grouping — clusters failures by error message
+- Pass rate trend — sparkline charts per project
 - Event-based grouping (one submission = one event with multiple suites)
 - Optional `description` field to annotate the purpose of each test run
 - Retains up to **15 events** per project (oldest auto-deleted)
 - Auto-refresh every 10 seconds
-- Interactive API docs via Swagger UI
+- Dark theme UI
 
 ## Prerequisites
 
@@ -45,7 +50,6 @@ A lightweight dashboard for monitoring end-to-end test results across multiple p
    ```
 
    Dashboard: `http://localhost:3000`
-   API docs: `http://localhost:3000/api-docs`
 
 ## Environment Variables
 
@@ -115,8 +119,9 @@ npm run post-results
 | `GET` | `/api/results/:id/cases` | Test cases for a suite run |
 | `GET` | `/api/summary` | Aggregated stats |
 | `GET` | `/api/cases` | Filter test cases globally |
-
-Full interactive docs at `/api-docs`.
+| `GET` | `/api/projects/:id/trend` | Pass rate trend (last 15 events) |
+| `GET` | `/api/projects/:id/flaky` | Flaky test detection |
+| `GET` | `/api/events/:id/failure-groups` | Group failures by error message |
 
 ## POST /api/results — Fields
 
@@ -141,7 +146,6 @@ Full interactive docs at `/api-docs`.
 ```
 server.js            Express server, DB init, all API routes
 public/index.html    Frontend (vanilla JS, all inline, no build)
-swagger.json         OpenAPI spec for Swagger UI
 e2e/post-results.js  Script to post sample test results
 .env.example         Environment variable template
 ```

@@ -1,7 +1,7 @@
 {
-  "name": "test-dashboard",
+  "name": "testpulse",
   "version": "1.0.0",
-  "description": "Test suite monitoring dashboard",
+  "description": "TestPulse — Lightweight test result dashboard",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

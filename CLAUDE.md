@@ -1,4 +1,4 @@
-# E2E Dashboard — Project Knowledge
+# TestPulse — Project Knowledge
 
 ## Stack
 Express 4 + PostgreSQL (`pg`) + Vanilla JS frontend. No build step. Node >= 18.
@@ -44,7 +44,7 @@ Auto-refresh **10 detik**, hanya view aktif. `projectsData[]` disimpan global �
 
 ## Conventions
 - Dark theme: bg `#0f172a`, green `#4ade80`, red `#f87171`, blue `#60a5fa`, yellow `#fbbf24`
-- Favicon SVG inline di `<head>`, title: **"E2E Test Dashboard"**
+- Favicon SVG inline di `<head>`, title: **"TestPulse"**
 - Module badge warna dari `MODULE_COLORS[]` (round-robin)
 - Git: `user.email = ahmad.asror@gmail.com`
 - Remote: `https://github.com/ahmadasror/e2e`
